@@ -1,0 +1,46 @@
+name: merge-probe
+on:
+  workflow_dispatch:
+    inputs:
+      pull_number:
+        required: true
+        type: string
+      expected_head:
+        required: true
+        type: string
+      lost_response:
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  merge-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit one guarded merge and reconcile
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pull_number }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          LOST_RESPONSE: ${{ inputs.lost_response }}
+        run: |
+          set -euo pipefail
+          case "$PR_NUMBER" in *[!0-9]*|'') exit 2;; esac
+          case "$EXPECTED_HEAD" in *[!0-9a-f]*|'') exit 2;; esac
+          base="repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
+          printf 'request_pr=%s expected_head=%s lost_response=%s\n' "$PR_NUMBER" "$EXPECTED_HEAD" "$LOST_RESPONSE"
+          gh api "$base" --jq '{base: .base.sha, head: .head.sha, merge_commit_sha, merged, state}'
+          payload="$(jq -cn --arg sha "$EXPECTED_HEAD" '{sha:$sha,merge_method:"merge"}')"
+          set +e
+          response="$(gh api -X PUT "$base/merge" -H 'X-GitHub-Api-Version: 2026-03-10' --input - 2>&1 <<< "$payload")"
+          exit_code=$?
+          set -e
+          if [ "$LOST_RESPONSE" != true ]; then
+            printf 'merge_exit=%s response=%s\n' "$exit_code" "$response"
+          else
+            printf 'merge_exit=%s response=discarded\n' "$exit_code"
+          fi
+          gh api "$base" --jq '{base: .base.sha, head: .head.sha, merge_commit_sha, merged, state}'
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '{base_ref: .object.sha}'

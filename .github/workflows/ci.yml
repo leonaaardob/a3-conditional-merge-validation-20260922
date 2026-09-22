@@ -1,0 +1,14 @@
+name: inert-ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  inert-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report immutable event identity
+        run: |
+          printf 'event=%s sha=%s\n' "$GITHUB_EVENT_NAME" "$GITHUB_SHA"
