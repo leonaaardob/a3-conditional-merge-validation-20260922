@@ -12,3 +12,4 @@ jobs:
       - name: Report immutable event identity
         run: |
           printf 'event=%s sha=%s\n' "$GITHUB_EVENT_NAME" "$GITHUB_SHA"
+          sleep 90
