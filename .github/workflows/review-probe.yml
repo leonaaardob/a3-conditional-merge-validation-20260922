@@ -1,0 +1,22 @@
+name: review-probe
+on:
+  workflow_dispatch:
+    inputs:
+      pull_number:
+        required: true
+        type: string
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve disposable fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pull_number }}
+        run: |
+          set -euo pipefail
+          case "$PR_NUMBER" in *[!0-9]*|'') exit 2;; esac
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" -H 'X-GitHub-Api-Version: 2026-03-10' -f event=APPROVE -f body='Disposable A.3 approval probe.' --jq '{id,state,commit_id,user:.user.login}'
