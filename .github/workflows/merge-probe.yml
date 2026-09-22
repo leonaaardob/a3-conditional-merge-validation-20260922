@@ -33,14 +33,15 @@ jobs:
           printf 'request_pr=%s expected_head=%s lost_response=%s\n' "$PR_NUMBER" "$EXPECTED_HEAD" "$LOST_RESPONSE"
           gh api "$base" --jq '{base: .base.sha, head: .head.sha, merge_commit_sha, merged, state}'
           payload="$(jq -cn --arg sha "$EXPECTED_HEAD" '{sha:$sha,merge_method:"merge"}')"
+          if [ "$LOST_RESPONSE" = true ]; then
+            gh api -X PUT "$base/merge" -H 'X-GitHub-Api-Version: 2026-03-10' --input - >/dev/null 2>&1 <<< "$payload"
+            printf 'request returned locally; response and status discarded; reconciliation deferred to a separate process\n'
+            exit 86
+          fi
           set +e
           response="$(gh api -X PUT "$base/merge" -H 'X-GitHub-Api-Version: 2026-03-10' --input - 2>&1 <<< "$payload")"
           exit_code=$?
           set -e
-          if [ "$LOST_RESPONSE" != true ]; then
-            printf 'merge_exit=%s response=%s\n' "$exit_code" "$response"
-          else
-            printf 'merge_exit=%s response=discarded\n' "$exit_code"
-          fi
+          printf 'merge_exit=%s response=%s\n' "$exit_code" "$response"
           gh api "$base" --jq '{base: .base.sha, head: .head.sha, merge_commit_sha, merged, state}'
           gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '{base_ref: .object.sha}'
